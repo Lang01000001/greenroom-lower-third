@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greenroom Lower Third Generator</title>
+
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Load Google Font: Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+          },
+          colors: {
+            charcoal: {
+              950: '#111014',
+              900: '#18171C',
+              850: '#1F1E24',
+              800: '#26252D',
+              700: '#36343F',
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Ensure Poppins is enforced globally */
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #18171C;
+      color: #FFFFFF;
+    }
+
+    /* Subtle checkerboard transparency grid for the 16:9 video preview stage */
+    .transparency-grid {
+      background-color: #141317;
+      background-image:
+        linear-gradient(45deg, #1d1c22 25%, transparent 25%),
+        linear-gradient(-45deg, #1d1c22 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #1d1c22 75%),
+        linear-gradient(-45deg, transparent 75%, #1d1c22 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+    }
+
+    /* Custom circular swatch styling for native color input inside the pill */
+    input[type="color"].pill-swatch {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    input[type="color"].pill-swatch::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    input[type="color"].pill-swatch::-webkit-color-swatch {
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    input[type="color"].pill-swatch::-moz-color-swatch {
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    /* Custom range slider styling */
+    input[type="range"] {
+      accent-color: #3b82f6;
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-blue-600 selection:text-white pb-16">
+
+  <!-- Main Centered Container -->
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
+
+    <!-- Header Bar -->
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white">Greenroom Lower Third Generator</h1>
+        <p class="text-xs sm:text-sm text-gray-400 mt-0.5">Customize text & colors, then export a crisp 1920×1080 transparent PNG.</p>
+      </div>
+
+      <div class="flex items-center gap-3 self-start sm:self-auto">
+        <button
+          id="resetBtn"
+          type="button"
+          class="px-4 py-2.5 rounded-full text-xs sm:text-sm font-medium text-gray-300 bg-charcoal-800 hover:bg-charcoal-700 border border-charcoal-700 transition-colors cursor-pointer"
+          title="Reset to defaults"
+        >
+          Reset
+        </button>
+
+        <!-- Split Download Button (Default Download + Dropdown with "Save As...") -->
+        <div id="downloadSplitWrapper" class="relative inline-flex rounded-full shadow-lg shadow-blue-600/25">
+          <button
+            id="downloadBtn"
+            type="button"
+            class="inline-flex items-center gap-2 pl-5 pr-3.5 py-2.5 rounded-l-full text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 transition-colors cursor-pointer"
+          >
+            <!-- Download Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Download PNG</span>
+          </button>
+
+          <button
+            id="downloadDropdownBtn"
+            type="button"
+            aria-label="More download options"
+            aria-haspopup="true"
+            aria-expanded="false"
+            class="inline-flex items-center justify-center px-3 py-2.5 rounded-r-full border-l border-blue-500/70 text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 transition-colors cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+
+          <!-- Dropdown Menu -->
+          <div
+            id="downloadDropdownMenu"
+            role="menu"
+            class="hidden absolute right-0 top-full mt-2 w-48 rounded-xl bg-charcoal-850 border border-charcoal-700 shadow-2xl py-1.5 z-40"
+          >
+            <button
+              id="saveAsMenuBtn"
+              type="button"
+              role="menuitem"
+              class="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium text-gray-200 hover:bg-charcoal-700/80 hover:text-white transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>Save As...</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Top Preview Card (Inspired by the top dark container in the screenshot) -->
+    <section class="bg-charcoal-950 border border-charcoal-700/80 rounded-2xl p-3 sm:p-5 shadow-2xl mb-8">
+      <div class="flex items-center justify-between mb-3 px-1">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">16:9 Live Preview (1920 × 1080)</span>
+        </div>
+        <button
+          id="toggleGridBtn"
+          type="button"
+          class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+        >
+          <span>Checkerboard: <strong id="gridStatusText" class="text-gray-200 font-semibold">On</strong></span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- 16:9 Aspect Ratio Stage -->
+      <div
+        id="previewStage"
+        class="relative w-full aspect-video rounded-xl overflow-hidden border border-charcoal-800 transparency-grid select-none"
+      >
+        <!-- Safe Area Guide (subtle 10% broadcast margin indicator) -->
+        <div id="safeMarginGuide" class="pointer-events-none absolute inset-[5%] border border-dashed border-white/10 rounded-lg transition-opacity duration-200"></div>
+
+        <!-- Scaled Lower Third Overlay Element (Positioned dynamically in JS to match 1920x1080 canvas 1:1) -->
+        <div
+          id="previewGraphic"
+          class="absolute flex items-stretch shadow-xl overflow-hidden"
+          style="left: 0%; bottom: 1.48%; background-color: #000000;"
+        >
+          <!-- Main Text Content Box (Positioned via exact baseline coordinates matching SVG) -->
+          <div id="previewTextBox" class="relative overflow-hidden">
+            <div
+              id="previewPrimaryText"
+              class="absolute font-bold leading-none whitespace-nowrap"
+              style="color: #FFFFFF;"
+            >
+              Langdon Auld
+            </div>
+            <div
+              id="previewSecondaryText"
+              class="absolute font-medium leading-none whitespace-nowrap"
+              style="color: #FFFFFF;"
+            >
+              Project Manager, Brandlive
+            </div>
+          </div>
+
+          <!-- Right Vertical Accent Bar -->
+          <div
+            id="previewAccentBar"
+            class="shrink-0"
+            style="background-color: #FFFFFF;"
+          ></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls Section -->
+    <main class="space-y-8">
+
+      <!-- Text Content Controls -->
+      <section class="bg-charcoal-850/60 border border-charcoal-700/70 rounded-2xl p-5 sm:p-6">
+        <h2 class="text-base sm:text-lg font-medium text-white mb-4">Text Content</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Primary Name Input -->
+          <div>
+            <label for="primaryTextInput" class="block text-xs font-medium text-gray-400 mb-1.5">
+              Primary Name / Headline
+            </label>
+            <input
+              id="primaryTextInput"
+              type="text"
+              value="Langdon Auld"
+              placeholder="Enter name or headline..."
+              class="w-full px-4 py-3 rounded-xl bg-charcoal-900 border border-charcoal-700 text-white text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            />
+          </div>
+
+          <!-- Secondary Title / Subtitle Input -->
+          <div>
+            <label for="secondaryTextInput" class="block text-xs font-medium text-gray-400 mb-1.5">
+              Title / Company Subtitle
+            </label>
+            <input
+              id="secondaryTextInput"
+              type="text"
+              value="Project Manager, Brandlive"
+              placeholder="Enter role, title, or company..."
+              class="w-full px-4 py-3 rounded-xl bg-charcoal-900 border border-charcoal-700 text-white text-sm font-medium placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            />
+          </div>
+        </div>
+      </section>
+
+      <!-- Font Colors Section (Matching Screenshot Pill Layout) -->
+      <section class="px-1">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div class="pt-1">
+            <h2 class="text-lg sm:text-xl font-normal text-white">Font colors</h2>
+            <p class="text-xs text-gray-400 mt-1">Primary headline & secondary subtitle text</p>
+          </div>
+
+          <div class="flex flex-col gap-3.5 w-full sm:w-auto">
+            <!-- Primary Font Color Pill -->
+            <div class="flex items-center justify-between sm:justify-start gap-3">
+              <span class="text-xs text-gray-400 sm:hidden">Primary Text</span>
+              <div class="flex items-center gap-3.5 bg-charcoal-850 border border-charcoal-700 hover:border-gray-500 focus-within:border-blue-500 rounded-full p-2 pr-5 transition-colors w-52 sm:w-56">
+                <input
+                  id="primaryFontColorPicker"
+                  type="color"
+                  value="#FFFFFF"
+                  aria-label="Primary font color picker"
+                  class="pill-swatch w-10 h-10 rounded-full shrink-0"
+                />
+                <input
+                  id="primaryFontColorHex"
+                  type="text"
+                  value="#FFFFFF"
+                  maxlength="7"
+                  aria-label="Primary font hex color"
+                  class="w-full bg-transparent text-white font-medium text-base tracking-wide uppercase focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <!-- Secondary Font Color Pill -->
+            <div class="flex items-center justify-between sm:justify-start gap-3">
+              <span class="text-xs text-gray-400 sm:hidden">Secondary Text</span>
+              <div class="flex items-center gap-3.5 bg-charcoal-850 border border-charcoal-700 hover:border-gray-500 focus-within:border-blue-500 rounded-full p-2 pr-5 transition-colors w-52 sm:w-56">
+                <input
+                  id="secondaryFontColorPicker"
+                  type="color"
+                  value="#FFFFFF"
+                  aria-label="Secondary font color picker"
+                  class="pill-swatch w-10 h-10 rounded-full shrink-0"
+                />
+                <input
+                  id="secondaryFontColorHex"
+                  type="text"
+                  value="#FFFFFF"
+                  maxlength="7"
+                  aria-label="Secondary font hex color"
+                  class="w-full bg-transparent text-white font-medium text-base tracking-wide uppercase focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Divider matching screenshot -->
+      <hr class="border-charcoal-700/80" />
+
+      <!-- Background Colors Section (Matching Screenshot Pill Layout) -->
+      <section class="px-1">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div class="pt-1">
+            <h2 class="text-lg sm:text-xl font-normal text-white">Background colors</h2>
+            <p class="text-xs text-gray-400 mt-1">Main banner fill & right edge accent bar</p>
+          </div>
+
+          <div class="flex flex-col gap-3.5 w-full sm:w-auto">
+            <!-- Main Background Color Pill -->
+            <div class="flex items-center justify-between sm:justify-start gap-3">
+              <span class="text-xs text-gray-400 sm:hidden">Main Banner</span>
+              <div class="flex items-center gap-3.5 bg-charcoal-850 border border-charcoal-700 hover:border-gray-500 focus-within:border-blue-500 rounded-full p-2 pr-5 transition-colors w-52 sm:w-56">
+                <input
+                  id="bgMainColorPicker"
+                  type="color"
+                  value="#000000"
+                  aria-label="Main background color picker"
+                  class="pill-swatch w-10 h-10 rounded-full shrink-0"
+                />
+                <input
+                  id="bgMainColorHex"
+                  type="text"
+                  value="#000000"
+                  maxlength="7"
+                  aria-label="Main background hex color"
+                  class="w-full bg-transparent text-white font-medium text-base tracking-wide uppercase focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <!-- Accent Bar Color Pill -->
+            <div class="flex items-center justify-between sm:justify-start gap-3">
+              <span class="text-xs text-gray-400 sm:hidden">Accent Bar</span>
+              <div class="flex items-center gap-3.5 bg-charcoal-850 border border-charcoal-700 hover:border-gray-500 focus-within:border-blue-500 rounded-full p-2 pr-5 transition-colors w-52 sm:w-56">
+                <input
+                  id="bgAccentColorPicker"
+                  type="color"
+                  value="#FFFFFF"
+                  aria-label="Accent bar color picker"
+                  class="pill-swatch w-10 h-10 rounded-full shrink-0"
+                />
+                <input
+                  id="bgAccentColorHex"
+                  type="text"
+                  value="#FFFFFF"
+                  maxlength="7"
+                  aria-label="Accent bar hex color"
+                  class="w-full bg-transparent text-white font-medium text-base tracking-wide uppercase focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Divider -->
+      <hr class="border-charcoal-700/80" />
+
+      <!-- Layout & Positioning Fine-Tuning -->
+      <section class="bg-charcoal-850/60 border border-charcoal-700/70 rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base sm:text-lg font-medium text-white">Layout & 1080p Positioning</h2>
+          <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+            <input id="safeGuideCheckbox" type="checkbox" checked class="rounded border-charcoal-700 bg-charcoal-900 text-blue-600 focus:ring-blue-500" />
+            <span>Show Safe Margin Guide</span>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <!-- Banner Width (in 1080p px) -->
+          <div>
+            <div class="flex items-center justify-between text-xs font-medium text-gray-400 mb-1.5">
+              <label for="boxWidthSlider">Banner Width</label>
+              <div class="flex items-center gap-2">
+                <span id="boxWidthValue" class="text-gray-200">970 px</span>
+                <label class="inline-flex items-center gap-1 text-[11px] text-gray-400 cursor-pointer">
+                  <input id="autoWidthCheckbox" type="checkbox" class="rounded border-charcoal-700 bg-charcoal-900 text-blue-600 focus:ring-blue-500" />
+                  <span>Auto</span>
+                </label>
+              </div>
+            </div>
+            <input
+              id="boxWidthSlider"
+              type="range"
+              min="500"
+              max="1720"
+              step="5"
+              value="970"
+              class="w-full h-2 bg-charcoal-900 rounded-lg cursor-pointer mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          <!-- Left Margin X (in 1080p px) -->
+          <div>
+            <div class="flex justify-between text-xs font-medium text-gray-400 mb-1.5">
+              <label for="marginXSlider">Left Margin (X)</label>
+              <span id="marginXValue" class="text-gray-200">0 px</span>
+            </div>
+            <input
+              id="marginXSlider"
+              type="range"
+              min="0"
+              max="300"
+              step="4"
+              value="0"
+              class="w-full h-2 bg-charcoal-900 rounded-lg cursor-pointer mt-2"
+            />
+          </div>
+
+          <!-- Bottom Margin Y (in 1080p px) -->
+          <div>
+            <div class="flex justify-between text-xs font-medium text-gray-400 mb-1.5">
+              <label for="marginYSlider">Bottom Margin (Y)</label>
+              <span id="marginYValue" class="text-gray-200">16 px</span>
+            </div>
+            <input
+              id="marginYSlider"
+              type="range"
+              min="0"
+              max="300"
+              step="4"
+              value="16"
+              class="w-full h-2 bg-charcoal-900 rounded-lg cursor-pointer mt-2"
+            />
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Embedded Webview (Slack) Notice Modal -->
+  <div
+    id="slackNoticeModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="slackNoticeTitle"
+  >
+    <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center shrink-0 text-blue-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          </div>
+          <h3 id="slackNoticeTitle" class="text-base sm:text-lg font-semibold text-white">Open in Browser to Download</h3>
+        </div>
+        <button
+          id="closeSlackNoticeBtn"
+          type="button"
+          class="p-1.5 rounded-xl text-gray-400 hover:text-white hover:bg-charcoal-800 transition-colors cursor-pointer"
+          aria-label="Close notice"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-xs sm:text-sm text-gray-300 leading-relaxed">
+        Slack’s built-in file viewer blocks file downloads and clipboard exports. To download your 1920×1080 transparent PNG, click the <strong class="text-white">"Open in Browser"</strong> icon in the top-right corner of Slack’s preview window.
+      </p>
+
+      <div class="flex justify-end pt-1">
+        <button
+          id="gotItSlackNoticeBtn"
+          type="button"
+          class="px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors cursor-pointer"
+        >
+          Got It
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification Banner (No alert() used) -->
+  <div
+    id="toastNotification"
+    class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-charcoal-800 border border-charcoal-700 text-white text-sm font-medium shadow-2xl opacity-0 pointer-events-none translate-y-2 transition-all duration-300"
+  >
+    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+    <span id="toastMessage">Exported 1920×1080 PNG overlay!</span>
+  </div>
+
+  <script>
+    /**
+     * Lower Third Video Overlay Generator
+     * Maintains a single source of truth for 1920x1080 coordinates so the
+     * scaled HTML preview and the exported 1920x1080 PNG canvas match identically.
+     */
+    (function () {
+      // Base 1080p design metrics (in native 1920x1080 pixels)
+      // Scaled proportionally from the SVG coordinate system (height ~86px -> 165px at 1080p, ~1.9186x scale)
+      const BASE_WIDTH = 1920;
+      const BASE_HEIGHT = 1080;
+      const SVG_SCALE = 165 / 86;
+
+      const DESIGN_METRICS = {
+        boxHeight: 165,                                   // Exact 165px height at 1080p
+        textX: Math.round(27 * SVG_SCALE),                // x="27" -> ~52px at 1080p
+        primaryBaselineY: Math.round(44 * SVG_SCALE),     // y="44" -> ~84px at 1080p
+        secondaryBaselineY: Math.round(70 * SVG_SCALE),   // y="70" -> ~134px at 1080p
+        primaryFontSize: Math.round(32 * SVG_SCALE),      // font-size="32px" -> ~61px at 1080p (weight: bold / 700)
+        secondaryFontSize: Math.round(20 * SVG_SCALE),    // font-size="20px" -> ~38px at 1080p (weight: 500)
+        paddingRight: 48,                                 // px at 1080p (used when Auto width is enabled)
+        accentBarWidth: 13,                               // px at 1080p (5px thinner so main fill extends 5px further)
+        defaultBoxWidth: 970,                             // px at 1080p
+      };
+
+      // Default Application State
+      const defaultState = {
+        primaryText: 'Langdon Auld',
+        secondaryText: 'Project Manager, Brandlive',
+        primaryFontColor: '#FFFFFF',
+        secondaryFontColor: '#FFFFFF',
+        bgMainColor: '#000000',
+        bgAccentColor: '#FFFFFF',
+        boxWidth: DESIGN_METRICS.defaultBoxWidth,
+        autoWidth: false,
+        marginX: 0,
+        marginY: 16,
+        showGrid: true,
+        showSafeGuide: true,
+      };
+
+      let state = { ...defaultState };
+
+      // DOM Element References
+      const els = {
+        previewStage: document.getElementById('previewStage'),
+        safeMarginGuide: document.getElementById('safeMarginGuide'),
+        previewGraphic: document.getElementById('previewGraphic'),
+        previewTextBox: document.getElementById('previewTextBox'),
+        previewPrimaryText: document.getElementById('previewPrimaryText'),
+        previewSecondaryText: document.getElementById('previewSecondaryText'),
+        previewAccentBar: document.getElementById('previewAccentBar'),
+
+        primaryTextInput: document.getElementById('primaryTextInput'),
+        secondaryTextInput: document.getElementById('secondaryTextInput'),
+
+        primaryFontColorPicker: document.getElementById('primaryFontColorPicker'),
+        primaryFontColorHex: document.getElementById('primaryFontColorHex'),
+        secondaryFontColorPicker: document.getElementById('secondaryFontColorPicker'),
+        secondaryFontColorHex: document.getElementById('secondaryFontColorHex'),
+
+        bgMainColorPicker: document.getElementById('bgMainColorPicker'),
+        bgMainColorHex: document.getElementById('bgMainColorHex'),
+        bgAccentColorPicker: document.getElementById('bgAccentColorPicker'),
+        bgAccentColorHex: document.getElementById('bgAccentColorHex'),
+
+        boxWidthSlider: document.getElementById('boxWidthSlider'),
+        boxWidthValue: document.getElementById('boxWidthValue'),
+        autoWidthCheckbox: document.getElementById('autoWidthCheckbox'),
+        marginXSlider: document.getElementById('marginXSlider'),
+        marginXValue: document.getElementById('marginXValue'),
+        marginYSlider: document.getElementById('marginYSlider'),
+        marginYValue: document.getElementById('marginYValue'),
+        safeGuideCheckbox: document.getElementById('safeGuideCheckbox'),
+
+        toggleGridBtn: document.getElementById('toggleGridBtn'),
+        gridStatusText: document.getElementById('gridStatusText'),
+        resetBtn: document.getElementById('resetBtn'),
+        downloadSplitWrapper: document.getElementById('downloadSplitWrapper'),
+        downloadBtn: document.getElementById('downloadBtn'),
+        downloadDropdownBtn: document.getElementById('downloadDropdownBtn'),
+        downloadDropdownMenu: document.getElementById('downloadDropdownMenu'),
+        saveAsMenuBtn: document.getElementById('saveAsMenuBtn'),
+
+        toastNotification: document.getElementById('toastNotification'),
+        toastMessage: document.getElementById('toastMessage'),
+      };
+
+      // Validate and normalize 6-digit hex color
+      function normalizeHex(value) {
+        if (!value) return null;
+        let cleaned = value.trim().toUpperCase();
+        if (!cleaned.startsWith('#')) cleaned = '#' + cleaned;
+        if (/^#[0-9A-F]{6}$/.test(cleaned)) {
+          return cleaned;
+        }
+        return null;
+      }
+
+      // Show non-intrusive toast notification
+      let toastTimer = null;
+      function showToast(message) {
+        els.toastMessage.textContent = message;
+        els.toastNotification.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
+        els.toastNotification.classList.add('opacity-100', 'translate-y-0');
+
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          els.toastNotification.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
+          els.toastNotification.classList.remove('opacity-100', 'translate-y-0');
+        }, 2800);
+      }
+
+      // Render Live Preview scaled identically to 1920x1080
+      function renderPreview() {
+        const stageWidth = els.previewStage.clientWidth;
+        if (!stageWidth) return;
+
+        // Ratio of live preview stage width to 1920px
+        const scale = stageWidth / BASE_WIDTH;
+
+        // Position graphic using percentage of 1920x1080
+        const leftPct = (state.marginX / BASE_WIDTH) * 100;
+        const bottomPct = (state.marginY / BASE_HEIGHT) * 100;
+
+        els.previewGraphic.style.left = `${leftPct}%`;
+        els.previewGraphic.style.bottom = `${bottomPct}%`;
+        els.previewGraphic.style.backgroundColor = state.bgMainColor;
+
+        // Apply exact scaled banner dimensions
+        const scaledHeight = DESIGN_METRICS.boxHeight * scale;
+        const scaledAccentWidth = DESIGN_METRICS.accentBarWidth * scale;
+        els.previewGraphic.style.height = `${scaledHeight}px`;
+        els.previewAccentBar.style.width = `${scaledAccentWidth}px`;
+        els.previewAccentBar.style.backgroundColor = state.bgAccentColor;
+
+        if (state.autoWidth) {
+          els.previewGraphic.style.width = 'auto';
+          els.previewTextBox.style.width = 'auto';
+          els.previewTextBox.style.minWidth = `${Math.max(120, 320 * scale - scaledAccentWidth)}px`;
+        } else {
+          const scaledTotalWidth = state.boxWidth * scale;
+          const scaledTextBoxWidth = Math.max(0, scaledTotalWidth - scaledAccentWidth);
+          els.previewGraphic.style.width = `${scaledTotalWidth}px`;
+          els.previewTextBox.style.width = `${scaledTextBoxWidth}px`;
+        }
+
+        // Apply exact scaled typography and baseline positioning
+        const primaryFontPx = DESIGN_METRICS.primaryFontSize * scale;
+        const secondaryFontPx = DESIGN_METRICS.secondaryFontSize * scale;
+        const textLeftPx = DESIGN_METRICS.textX * scale;
+        const primaryBaselinePx = DESIGN_METRICS.primaryBaselineY * scale;
+        const secondaryBaselinePx = DESIGN_METRICS.secondaryBaselineY * scale;
+
+        els.previewPrimaryText.textContent = state.primaryText || ' ';
+        els.previewPrimaryText.style.color = state.primaryFontColor;
+        els.previewPrimaryText.style.fontSize = `${primaryFontPx}px`;
+        els.previewPrimaryText.style.left = `${textLeftPx}px`;
+        els.previewPrimaryText.style.top = `${primaryBaselinePx - primaryFontPx * 0.78}px`;
+
+        els.previewSecondaryText.textContent = state.secondaryText;
+        els.previewSecondaryText.style.color = state.secondaryFontColor;
+        els.previewSecondaryText.style.fontSize = `${secondaryFontPx}px`;
+        els.previewSecondaryText.style.left = `${textLeftPx}px`;
+        els.previewSecondaryText.style.top = `${secondaryBaselinePx - secondaryFontPx * 0.78}px`;
+        els.previewSecondaryText.style.display = state.secondaryText.trim() ? 'block' : 'none';
+      }
+
+      // Render offscreen 1920x1080 transparent PNG canvas and return { canvas, dataUrl, filename }
+      async function renderExportCanvas() {
+        // Ensure Poppins font is loaded before drawing to canvas
+        if (document.fonts && document.fonts.ready) {
+          await document.fonts.ready;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = BASE_WIDTH;
+        canvas.height = BASE_HEIGHT;
+        const ctx = canvas.getContext('2d');
+
+        // Clear canvas to preserve full alpha transparency
+        ctx.clearRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+
+        const primaryStr = state.primaryText || ' ';
+        const secondaryStr = state.secondaryText.trim();
+        const hasSecondary = secondaryStr.length > 0;
+
+        const boxHeight = DESIGN_METRICS.boxHeight;
+        const accentWidth = DESIGN_METRICS.accentBarWidth;
+        const textXOffset = DESIGN_METRICS.textX;
+
+        // Calculate total box width
+        let totalWidth = state.boxWidth;
+        if (state.autoWidth) {
+          ctx.font = `700 ${DESIGN_METRICS.primaryFontSize}px "Poppins", sans-serif`;
+          const primaryWidth = ctx.measureText(primaryStr).width;
+
+          ctx.font = `500 ${DESIGN_METRICS.secondaryFontSize}px "Poppins", sans-serif`;
+          const secondaryWidth = hasSecondary ? ctx.measureText(secondaryStr).width : 0;
+
+          const maxTextWidth = Math.max(primaryWidth, secondaryWidth);
+          totalWidth = Math.max(320, Math.ceil(textXOffset + maxTextWidth + DESIGN_METRICS.paddingRight + accentWidth));
+        }
+
+        const mainWidth = Math.max(0, totalWidth - accentWidth);
+        const boxX = state.marginX;
+        const boxY = BASE_HEIGHT - state.marginY - boxHeight;
+
+        // 1. Draw Main Background Rectangle
+        ctx.fillStyle = state.bgMainColor;
+        ctx.fillRect(boxX, boxY, mainWidth, boxHeight);
+
+        // 2. Draw Right Vertical Accent Bar
+        ctx.fillStyle = state.bgAccentColor;
+        ctx.fillRect(boxX + mainWidth, boxY, accentWidth, boxHeight);
+
+        // 3. Draw Primary Name / Headline Text using exact SVG baseline
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = state.primaryFontColor;
+        ctx.font = `700 ${DESIGN_METRICS.primaryFontSize}px "Poppins", sans-serif`;
+        ctx.fillText(primaryStr, boxX + textXOffset, boxY + DESIGN_METRICS.primaryBaselineY);
+
+        // 4. Draw Secondary Subtitle Text using exact SVG baseline
+        if (hasSecondary) {
+          ctx.fillStyle = state.secondaryFontColor;
+          ctx.font = `500 ${DESIGN_METRICS.secondaryFontSize}px "Poppins", sans-serif`;
+          ctx.fillText(secondaryStr, boxX + textXOffset, boxY + DESIGN_METRICS.secondaryBaselineY);
+        }
+
+        // Build clean filename: "{Primary Name} Lower Third.png"
+        const cleanName = (state.primaryText || '')
+          .trim()
+          .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+          .replace(/\s+/g, ' ');
+        const filename = cleanName ? `${cleanName} Lower Third.png` : 'Lower Third.png';
+        const dataUrl = canvas.toDataURL('image/png');
+
+        return { canvas, dataUrl, filename };
+      }
+
+      // Trigger standard browser download to default Downloads folder
+      function triggerStandardDownload(dataUrl, filename) {
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = filename;
+        link.rel = 'noopener';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (link.parentNode) document.body.removeChild(link);
+        }, 250);
+      }
+
+      // Trigger OS File Explorer "Save As..." dialog when supported
+      async function triggerSaveAsPicker(canvas, dataUrl, filename) {
+        if (typeof window.showSaveFilePicker === 'function') {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: filename,
+              types: [
+                {
+                  description: 'PNG Image (1920×1080 Transparent)',
+                  accept: { 'image/png': ['.png'] },
+                },
+              ],
+            });
+            const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            showToast(`Saved "${filename}"`);
+            return true;
+          } catch (err) {
+            if (err && err.name === 'AbortError') {
+              return true; // User cancelled picker
+            }
+          }
+        }
+        // Fallback if showSaveFilePicker isn't supported in this browser
+        triggerStandardDownload(dataUrl, filename);
+        showToast(`Downloaded "${filename}"`);
+        return true;
+      }
+
+      function closeDropdownMenu() {
+        els.downloadDropdownMenu.classList.add('hidden');
+        els.downloadDropdownBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      // Main export handler: downloads directly to default folder or opens Save As picker
+      async function exportPNG(mode = 'default') {
+        try {
+          const { canvas, dataUrl, filename } = await renderExportCanvas();
+
+          if (mode === 'saveAs') {
+            await triggerSaveAsPicker(canvas, dataUrl, filename);
+            return;
+          }
+
+          triggerStandardDownload(dataUrl, filename);
+          showToast(`Downloaded "${filename}"`);
+        } catch (err) {
+          console.error('Export error:', err);
+          showToast('Error generating PNG. Please try again.');
+        }
+      }
+
+      // Sync a Color Picker + Hex Text Input pair
+      function bindColorPair(pickerEl, hexEl, stateKey) {
+        pickerEl.addEventListener('input', (e) => {
+          const hex = e.target.value.toUpperCase();
+          state[stateKey] = hex;
+          hexEl.value = hex;
+          renderPreview();
+        });
+
+        hexEl.addEventListener('input', (e) => {
+          const normalized = normalizeHex(e.target.value);
+          if (normalized) {
+            state[stateKey] = normalized;
+            pickerEl.value = normalized;
+            renderPreview();
+          }
+        });
+
+        hexEl.addEventListener('blur', () => {
+          hexEl.value = state[stateKey];
+        });
+      }
+
+      // Sync all UI inputs from current state (used on init & reset)
+      function syncControlsFromState() {
+        els.primaryTextInput.value = state.primaryText;
+        els.secondaryTextInput.value = state.secondaryText;
+
+        els.primaryFontColorPicker.value = state.primaryFontColor;
+        els.primaryFontColorHex.value = state.primaryFontColor;
+        els.secondaryFontColorPicker.value = state.secondaryFontColor;
+        els.secondaryFontColorHex.value = state.secondaryFontColor;
+
+        els.bgMainColorPicker.value = state.bgMainColor;
+        els.bgMainColorHex.value = state.bgMainColor;
+        els.bgAccentColorPicker.value = state.bgAccentColor;
+        els.bgAccentColorHex.value = state.bgAccentColor;
+
+        els.autoWidthCheckbox.checked = state.autoWidth;
+        els.boxWidthSlider.value = state.boxWidth;
+        els.boxWidthSlider.disabled = state.autoWidth;
+        els.boxWidthValue.textContent = state.autoWidth ? 'Auto' : `${state.boxWidth} px`;
+
+        els.marginXSlider.value = state.marginX;
+        els.marginXValue.textContent = `${state.marginX} px`;
+        els.marginYSlider.value = state.marginY;
+        els.marginYValue.textContent = `${state.marginY} px`;
+
+        els.safeGuideCheckbox.checked = state.showSafeGuide;
+        els.safeMarginGuide.style.opacity = state.showSafeGuide ? '1' : '0';
+
+        els.gridStatusText.textContent = state.showGrid ? 'On' : 'Off';
+        els.previewStage.classList.toggle('transparency-grid', state.showGrid);
+      }
+
+      // Attach Event Listeners
+      els.primaryTextInput.addEventListener('input', (e) => {
+        state.primaryText = e.target.value;
+        renderPreview();
+      });
+
+      els.secondaryTextInput.addEventListener('input', (e) => {
+        state.secondaryText = e.target.value;
+        renderPreview();
+      });
+
+      bindColorPair(els.primaryFontColorPicker, els.primaryFontColorHex, 'primaryFontColor');
+      bindColorPair(els.secondaryFontColorPicker, els.secondaryFontColorHex, 'secondaryFontColor');
+      bindColorPair(els.bgMainColorPicker, els.bgMainColorHex, 'bgMainColor');
+      bindColorPair(els.bgAccentColorPicker, els.bgAccentColorHex, 'bgAccentColor');
+
+      els.boxWidthSlider.addEventListener('input', (e) => {
+        state.boxWidth = parseInt(e.target.value, 10);
+        els.boxWidthValue.textContent = `${state.boxWidth} px`;
+        renderPreview();
+      });
+
+      els.autoWidthCheckbox.addEventListener('change', (e) => {
+        state.autoWidth = e.target.checked;
+        els.boxWidthSlider.disabled = state.autoWidth;
+        els.boxWidthValue.textContent = state.autoWidth ? 'Auto' : `${state.boxWidth} px`;
+        renderPreview();
+      });
+
+      els.marginXSlider.addEventListener('input', (e) => {
+        state.marginX = parseInt(e.target.value, 10);
+        els.marginXValue.textContent = `${state.marginX} px`;
+        renderPreview();
+      });
+
+      els.marginYSlider.addEventListener('input', (e) => {
+        state.marginY = parseInt(e.target.value, 10);
+        els.marginYValue.textContent = `${state.marginY} px`;
+        renderPreview();
+      });
+
+      els.safeGuideCheckbox.addEventListener('change', (e) => {
+        state.showSafeGuide = e.target.checked;
+        els.safeMarginGuide.style.opacity = state.showSafeGuide ? '1' : '0';
+      });
+
+      els.toggleGridBtn.addEventListener('click', () => {
+        state.showGrid = !state.showGrid;
+        els.gridStatusText.textContent = state.showGrid ? 'On' : 'Off';
+        els.previewStage.classList.toggle('transparency-grid', state.showGrid);
+      });
+
+      els.resetBtn.addEventListener('click', () => {
+        state = { ...defaultState };
+        syncControlsFromState();
+        renderPreview();
+        showToast('Reset to default settings');
+      });
+
+      // Default Download button (direct download to default folder)
+      els.downloadBtn.addEventListener('click', () => {
+        closeDropdownMenu();
+        exportPNG('default');
+      });
+
+      // Split button dropdown toggle
+      els.downloadDropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = els.downloadDropdownMenu.classList.contains('hidden');
+        if (isHidden) {
+          els.downloadDropdownMenu.classList.remove('hidden');
+          els.downloadDropdownBtn.setAttribute('aria-expanded', 'true');
+        } else {
+          closeDropdownMenu();
+        }
+      });
+
+      // "Save As..." dropdown menu item
+      els.saveAsMenuBtn.addEventListener('click', () => {
+        closeDropdownMenu();
+        exportPNG('saveAs');
+      });
+
+      // Close dropdown when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!els.downloadSplitWrapper.contains(e.target)) {
+          closeDropdownMenu();
+        }
+      });
+
+      // Responsive scaling observer so preview remains exact at all viewport sizes
+      if (typeof ResizeObserver !== 'undefined') {
+        const resizeObserver = new ResizeObserver(() => renderPreview());
+        resizeObserver.observe(els.previewStage);
+      } else {
+        window.addEventListener('resize', renderPreview);
+      }
+
+      // Initialize UI and render once fonts/DOM are ready
+      syncControlsFromState();
+      renderPreview();
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(renderPreview);
+      }
+    })();
+  </script>
+</body>
+</html>
